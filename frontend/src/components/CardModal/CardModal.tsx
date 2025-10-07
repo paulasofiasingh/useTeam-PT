@@ -128,10 +128,10 @@ const CardModal: React.FC<CardModalProps> = ({
             </>
           ) : (
             <>
-              <button onClick={() => setIsEditing(true)} className="btn-edit">
+              <button onClick={() => setIsEditing(true)} className="btn-blue">
                 Editar
               </button>
-              <button onClick={handleDelete} className="btn-delete">
+              <button onClick={handleDelete} className="btn-red">
                 Eliminar
               </button>
               <button onClick={onClose} className="btn-close">

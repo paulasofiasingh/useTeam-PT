@@ -157,7 +157,7 @@
   box-shadow: 0 4px 8px rgba(40, 167, 69, 0.4);
 }
 
-.btn-edit {
+.btn-blue {
   background-color: #007bff;
   color: white;
   border: none;
@@ -165,14 +165,17 @@
   border-radius: 4px;
   cursor: pointer;
   font-size: 1rem;
-  transition: background-color 0.2s;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
 }
 
-.btn-edit:hover {
+.btn-blue:hover {
   background-color: #0056b3;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
 }
 
-.btn-delete {
+.btn-red {
   background-color: #dc3545;
   color: white;
   border: none;
@@ -180,11 +183,14 @@
   border-radius: 4px;
   cursor: pointer;
   font-size: 1rem;
-  transition: background-color 0.2s;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
 }
 
-.btn-delete:hover {
+.btn-red:hover {
   background-color: #c82333;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(220, 53, 69, 0.4);
 }
 
 .btn-cancel {
