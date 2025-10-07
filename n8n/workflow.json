@@ -1,0 +1,173 @@
+{
+  "name": "Kanban Backlog Export",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "kanban-export",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "kanban-export-webhook"
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "emailTo",
+              "value": "={{ $json.emailTo || 'admin@useteam.io' }}"
+            },
+            {
+              "name": "emailSubject",
+              "value": "Exportación de Backlog - {{ $json.boardName || 'Tablero Kanban' }}"
+            },
+            {
+              "name": "emailFrom",
+              "value": "noreply@kanban-app.com"
+            },
+            {
+              "name": "boardName",
+              "value": "={{ $json.boardName || 'Tablero Kanban' }}"
+            },
+            {
+              "name": "boardId",
+              "value": "={{ $json.boardId }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-variables",
+      "name": "Set Variables",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extraer y estructurar datos del tablero Kanban\nconst inputData = $input.first().json;\nconst boardData = inputData.boardData || {};\nconst columns = boardData.columns || [];\n\n// Estructurar datos para CSV\nlet csvData = [];\nlet csvHeaders = ['ID', 'Título', 'Descripción', 'Columna', 'Fecha de Creación', 'Fecha de Actualización', 'Prioridad', 'Asignado'];\n\n// Procesar cada columna y sus tarjetas\ncolumns.forEach(column => {\n  const columnName = column.name || 'Sin Nombre';\n  const cards = column.cards || [];\n  \n  cards.forEach(card => {\n    const cardData = [\n      card.id || '',\n      card.title || 'Sin Título',\n      card.description || '',\n      columnName,\n      card.createdAt ? new Date(card.createdAt).toISOString() : '',\n      card.updatedAt ? new Date(card.updatedAt).toISOString() : '',\n      card.priority || 'Media',\n      card.assignedTo || 'Sin Asignar'\n    ];\n    csvData.push(cardData);\n  });\n});\n\n// Generar CSV\nlet csvContent = csvHeaders.join(',') + '\\n';\ncsvData.forEach(row => {\n  // Escapar comillas y comas en los datos\n  const escapedRow = row.map(field => {\n    const stringField = String(field || '');\n    if (stringField.includes(',') || stringField.includes('\"') || stringField.includes('\\n')) {\n      return '\"' + stringField.replace(/\"/g, '\"\"') + '\"';\n    }\n    return stringField;\n  });\n  csvContent += escapedRow.join(',') + '\\n';\n});\n\n// Generar nombre de archivo con timestamp\nconst timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);\nconst fileName = `backlog-${inputData.boardName || 'tablero'}-${timestamp}.csv`;\n\nreturn {\n  json: {\n    csvContent: csvContent,\n    fileName: fileName,\n    totalCards: csvData.length,\n    totalColumns: columns.length,\n    boardName: inputData.boardName || 'Tablero Kanban',\n    exportDate: new Date().toISOString()\n  }\n};"
+      },
+      "id": "extract-data",
+      "name": "Extract Data & Generate CSV",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $('Set Variables').item.json.emailFrom }}",
+        "toEmail": "={{ $('Set Variables').item.json.emailTo }}",
+        "subject": "={{ $('Set Variables').item.json.emailSubject }}",
+        "message": "Hola,\n\nTe enviamos la exportación del backlog del tablero '{{ $('Extract Data & Generate CSV').item.json.boardName }}'.\n\nDetalles de la exportación:\n- Total de tarjetas: {{ $('Extract Data & Generate CSV').item.json.totalCards }}\n- Total de columnas: {{ $('Extract Data & Generate CSV').item.json.totalColumns }}\n- Fecha de exportación: {{ $('Extract Data & Generate CSV').item.json.exportDate }}\n\nEl archivo CSV está adjunto a este email.\n\nSaludos,\nEquipo Kanban",
+        "attachments": {
+          "attachments": [
+            {
+              "name": "={{ $('Extract Data & Generate CSV').item.json.fileName }}",
+              "data": "={{ $('Extract Data & Generate CSV').item.json.csvContent }}",
+              "type": "text/csv"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "send-email",
+      "name": "Send Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"success\": true,\n  \"message\": \"Backlog exportado exitosamente\",\n  \"data\": {\n    \"fileName\": \"{{ $('Extract Data & Generate CSV').item.json.fileName }}\",\n    \"totalCards\": {{ $('Extract Data & Generate CSV').item.json.totalCards }},\n    \"totalColumns\": {{ $('Extract Data & Generate CSV').item.json.totalColumns }},\n    \"exportDate\": \"{{ $('Extract Data & Generate CSV').item.json.exportDate }}\",\n    \"emailSent\": true,\n    \"emailTo\": \"{{ $('Set Variables').item.json.emailTo }}\"\n  }\n}",
+        "options": {}
+      },
+      "id": "success-response",
+      "name": "Success Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"success\": false,\n  \"message\": \"Error al exportar backlog\",\n  \"error\": \"{{ $json.error || 'Error desconocido' }}\",\n  \"timestamp\": \"{{ new Date().toISOString() }}\"\n}",
+        "options": {}
+      },
+      "id": "error-response",
+      "name": "Error Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1120, 500]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Set Variables",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Variables": {
+      "main": [
+        [
+          {
+            "node": "Extract Data & Generate CSV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Data & Generate CSV": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email": {
+      "main": [
+        [
+          {
+            "node": "Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "id": "kanban-export-workflow",
+  "tags": [
+    {
+      "createdAt": "2024-01-15T10:00:00.000Z",
+      "updatedAt": "2024-01-15T10:00:00.000Z",
+      "id": "kanban",
+      "name": "kanban"
+    }
+  ]
+}
