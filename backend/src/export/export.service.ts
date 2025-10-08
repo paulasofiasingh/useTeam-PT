@@ -16,7 +16,6 @@ export class ExportService {
 
   async exportBacklog(exportBacklogDto: ExportBacklogDto): Promise<any> {
     try {
-      console.log('📧 ExportBacklogDto recibido:', exportBacklogDto);
       // Obtener datos del tablero
       const board = await this.boardsService.findOne(exportBacklogDto.boardId);
       
@@ -58,7 +57,6 @@ export class ExportService {
       };
 
       // Enviar datos a N8N
-      console.log('📤 Enviando datos a N8N:', exportData);
       const response = await fetch(this.n8nWebhookUrl, {
         method: 'POST',
         headers: {

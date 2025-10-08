@@ -14,7 +14,6 @@ export const useKanbanBoard = (boardId?: string, currentUser?: { username: strin
 
   // Cargar tablero
   const loadBoard = async () => {
-    console.log('🚀 loadBoard ejecutándose...'); // ← Agrega esta línea
     try {
       setLoading(true);
       if (boardId) {
@@ -26,34 +25,27 @@ export const useKanbanBoard = (boardId?: string, currentUser?: { username: strin
         
         try {
           // Buscar todos los tableros
-          console.log('🔍 Buscando tableros existentes...');
           const allBoards = await boardsApi.getAll();
-          console.log('📋 Tableros encontrados:', allBoards.data);
           const sharedBoard = allBoards.data.find(board => board.name === SHARED_BOARD_NAME);
           
           if (sharedBoard) {
             // Usar el tablero compartido existente
-            console.log('✅ Usando tablero compartido existente:', sharedBoard);
             setBoard(sharedBoard);
           } else {
             // Crear el tablero compartido
-            console.log('🆕 Creando nuevo tablero compartido...');
             const response = await boardsApi.create({
               name: SHARED_BOARD_NAME,
               description: 'Tablero colaborativo para todos los usuarios'
             });
-            console.log('✅ Tablero creado:', response.data);
             setBoard(response.data);
           }
         } catch (error) {
           // Si hay error al buscar, crear uno nuevo
           console.error('❌ Error al buscar tableros:', error);
-          console.log('🆕 Creando tablero de respaldo...');
           const response = await boardsApi.create({
             name: SHARED_BOARD_NAME,
             description: 'Tablero colaborativo para todos los usuarios'
           });
-          console.log('✅ Tablero de respaldo creado:', response.data);
           setBoard(response.data);
         }
       }
@@ -382,7 +374,6 @@ const updateColumn = async (columnId: string, data: { name?: string }) => {
 
   // Configurar eventos WebSocket para colaboración en tiempo real
   useEffect(() => {
-    console.log('🔌 Configurando WebSocket listeners...', { socket: !!socket, board: !!board, currentUser: !!currentUser });
     
     if (socket && board && currentUser) {
       // Unirse al tablero
@@ -390,7 +381,6 @@ const updateColumn = async (columnId: string, data: { name?: string }) => {
 
       // Escuchar actualizaciones de tarjetas
       socket.on('card-updated', (data) => {
-        console.log('🃏 Evento card-updated recibido:', data);
         setBoard(prev => {
           if (!prev) return null;
           
@@ -408,7 +398,6 @@ const updateColumn = async (columnId: string, data: { name?: string }) => {
 
       // Escuchar nuevas tarjetas
       socket.on('card-created', (data) => {
-        console.log('🃏 Evento card-created recibido:', data);
         setBoard(prev => {
           if (!prev) return null;
           
@@ -492,14 +481,12 @@ const updateColumn = async (columnId: string, data: { name?: string }) => {
 
       // Escuchar nuevas columnas
       socket.on('column-created', (data) => {
-        console.log('📋 Evento column-created recibido:', data);
         setBoard(prev => {
           if (!prev) return null;
           
           // Verificar si la columna ya existe para evitar duplicados
           const columnExists = prev.columns.some(col => col._id === data.column._id);
           if (columnExists) {
-            console.log('⚠️ Columna ya existe, evitando duplicado:', data.column._id);
             return prev;
           }
           
@@ -512,7 +499,6 @@ const updateColumn = async (columnId: string, data: { name?: string }) => {
 
       // Escuchar columnas actualizadas
       socket.on('column-updated', (data) => {
-        console.log('📋 Evento column-updated recibido:', data);
         setBoard(prev => {
           if (!prev) return null;
           
@@ -527,7 +513,6 @@ const updateColumn = async (columnId: string, data: { name?: string }) => {
 
       // Escuchar columnas eliminadas
       socket.on('column-deleted', (data) => {
-        console.log('📋 Evento column-deleted recibido:', data);
         setBoard(prev => {
           if (!prev) return null;
           
@@ -541,7 +526,6 @@ const updateColumn = async (columnId: string, data: { name?: string }) => {
 
       // Limpiar listeners al desmontar
       return () => {
-        console.log('🧹 Limpiando WebSocket listeners...');
         socket.off('card-updated');
         socket.off('card-created');
         socket.off('card-deleted');
@@ -552,12 +536,10 @@ const updateColumn = async (columnId: string, data: { name?: string }) => {
         socket.off('board-updated');
       };
     } else {
-      console.log('❌ No se pueden configurar listeners WebSocket:', { socket: !!socket, board: !!board, currentUser: !!currentUser });
     }
   }, [socket, board, currentUser, joinBoard]);
 
   useEffect(() => {
-    console.log('🔄 useEffect ejecutándose, boardId:', boardId); // ← Agrega esta línea
     loadBoard();
   }, [boardId]);
 
