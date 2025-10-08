@@ -21,7 +21,7 @@
           "string": [
             {
               "name": "emailTo",
-              "value": "={{ $json.emailTo }}"
+              "value": "paulasofiasingh@gmail.com"
             },
             {
               "name": "emailSubject",
@@ -29,7 +29,7 @@
             },
             {
               "name": "emailFrom",
-              "value": "noreply@kanban-app.com"
+              "value": "paulasofiasingh@gmail.com"
             },
             {
               "name": "boardName",
@@ -85,7 +85,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "{\n  \"success\": true,\n  \"message\": \"Backlog exportado exitosamente\",\n  \"data\": {\n    \"fileName\": \"{{ $('Extract Data & Generate CSV').item.json.fileName }}\",\n    \"totalCards\": {{ $('Extract Data & Generate CSV').item.json.totalCards }},\n    \"totalColumns\": {{ $('Extract Data & Generate CSV').item.json.totalColumns }},\n    \"exportDate\": \"{{ $('Extract Data & Generate CSV').item.json.exportDate }}\",\n    \"emailSent\": true,\n    \"emailTo\": \"{{ $('Set Variables').item.json.emailTo }}\"\n  }\n}",
+        "responseBody": "{\n  \"success\": true,\n  \"message\": \"Backlog exportado exitosamente\",\n  \"data\": {}\n}",
         "options": {}
       },
       "id": "success-response",
@@ -97,7 +97,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "{\n  \"success\": false,\n  \"message\": \"Error al exportar backlog\",\n  \"error\": \"{{ $json.error || 'Error desconocido' }}\",\n  \"timestamp\": \"{{ new Date().toISOString() }}\"\n}",
+        "responseBody": "={\n  \"success\": false,\n  \"message\": \"Error al exportar backlog\",\n  \"error\": \"{{ $json.error || 'Error desconocido' }}\",\n  \"timestamp\": \"{{ new Date().toISOString() }}\"\n}",
         "options": {}
       },
       "id": "error-response",
