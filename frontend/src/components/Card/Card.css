@@ -1,24 +1,31 @@
-  .card {
-    background: white;
-    border-radius: 8px;
-    padding: 12px;
-    margin-bottom: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    cursor: pointer;
-    transition: all 0.2s ease;
-    position: relative;
-    z-index: 1;
-  }
+.card {
+  background: white;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  z-index: 1;
+  transform: none;
+}
   
   .card:hover {
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
     transform: translateY(-1px);
   }
   
-  .card.dragging {
-    transform: rotate(5deg);
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
-  }
+.card.dragging {
+  transform: rotate(2deg) scale(1.02);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+}
+
+/* Asegurar que las tarjetas no mantengan transformaciones residuales */
+.card:not(.dragging) {
+  transform: none !important;
+}
   
   .card-header {
     display: flex;

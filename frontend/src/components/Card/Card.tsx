@@ -20,7 +20,7 @@ const Card: React.FC<CardProps> = ({ card, onView }) => {
   } = useSortable({ id: card._id });
 
   const style = {
-    transform: CSS.Transform.toString(transform),
+    transform: isDragging ? CSS.Transform.toString(transform) : 'none',
     transition,
     opacity: isDragging ? 0.5 : 1,
   };
