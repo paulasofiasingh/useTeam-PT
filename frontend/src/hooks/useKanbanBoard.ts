@@ -76,10 +76,11 @@ export const useKanbanBoard = (boardId?: string, currentUser?: { username: strin
         position: board.columns.length
       });
       
-      setBoard(prev => prev ? {
-        ...prev,
-        columns: [...prev.columns, response.data]
-      } : null);
+      // NO actualizar localmente - esperar el evento WebSocket para evitar duplicados
+      // setBoard(prev => prev ? {
+      //   ...prev,
+      //   columns: [...prev.columns, response.data]
+      // } : null);
     } catch (err) {
       console.error('Error al crear columna:', err);
     }
@@ -495,6 +496,13 @@ const updateColumn = async (columnId: string, data: { name?: string }) => {
         setBoard(prev => {
           if (!prev) return null;
           
+          // Verificar si la columna ya existe para evitar duplicados
+          const columnExists = prev.columns.some(col => col._id === data.column._id);
+          if (columnExists) {
+            console.log('⚠️ Columna ya existe, evitando duplicado:', data.column._id);
+            return prev;
+          }
+          
           return {
             ...prev,
             columns: [...prev.columns, data.column]
@@ -541,6 +549,7 @@ const updateColumn = async (columnId: string, data: { name?: string }) => {
         socket.off('column-created');
         socket.off('column-updated');
         socket.off('column-deleted');
+        socket.off('board-updated');
       };
     } else {
       console.log('❌ No se pueden configurar listeners WebSocket:', { socket: !!socket, board: !!board, currentUser: !!currentUser });
