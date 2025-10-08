@@ -61,9 +61,6 @@ cd useTeam-PT
 # Copiar archivo de ejemplo
 cp env.example .env
 
-# Editar variables según tu configuración
-nano .env
-```
 
 **Variables importantes a configurar:**
 ```env
@@ -118,12 +115,11 @@ docker-compose down -v
 
 ```bash
 # Instalar dependencias del proyecto
-npm install
 
-# Instalar dependencias del backend
+# Del backend
 cd backend && npm install && cd ..
 
-# Instalar dependencias del frontend
+# Del frontend
 cd frontend && npm install && cd ..
 ```
 
@@ -222,7 +218,7 @@ Host: smtp.gmail.com
 Port: 587
 User: tu-email@gmail.com
 Password: tu-app-password-de-gmail
-Secure: true
+SSL/TLS: desactivado
 ```
 
 **⚠️ Importante**: Usar **App Password** de Gmail, no tu contraseña normal.
