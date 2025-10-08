@@ -9,19 +9,24 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
+import { UsersService } from '../users/users.service';
 
 @WSGateway({
   cors: {
     origin: process.env.CORS_ORIGIN || 'http://localhost:3001',
     credentials: true,
   },
+  transports: ['websocket', 'polling'],
 })
+
 export class WebSocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
   private logger: Logger = new Logger('WebSocketGateway');
-  private connectedUsers: Map<string, string> = new Map(); // socketId -> userId
+  private connectedUsers: Map<string, string> = new Map(); // socketId -> username
+
+  constructor(private readonly usersService: UsersService) {}
 
   handleConnection(client: Socket) {
     this.logger.log(`Client connected: ${client.id}`);
@@ -29,28 +34,115 @@ export class WebSocketGateway implements OnGatewayConnection, OnGatewayDisconnec
 
   handleDisconnect(client: Socket) {
     this.logger.log(`Client disconnected: ${client.id}`);
-    // Remover usuario de la lista de conectados
-    this.connectedUsers.delete(client.id);
+    
+    // Actualizar estado del usuario en la base de datos
+    const username = this.connectedUsers.get(client.id);
+    if (username) {
+      this.usersService.disconnectUser(client.id);
+      this.connectedUsers.delete(client.id);
+      
+      // Notificar a otros usuarios que este usuario se desconectó
+      this.server.emit('user-disconnected', {
+        username,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  @SubscribeMessage('user-login')
+  async handleUserLogin(
+    @MessageBody() data: { username: string; displayName: string; email: string; color?: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    try {
+      const { username, displayName, email, color } = data;
+      
+      // Validar datos de entrada
+      if (!username || !displayName || !email) {
+        throw new Error('Username, displayName y email son requeridos');
+      }
+      
+      if (username.length < 2 || username.length > 20) {
+        throw new Error('Username debe tener entre 2 y 20 caracteres');
+      }
+      
+      if (displayName.length < 2 || displayName.length > 30) {
+        throw new Error('DisplayName debe tener entre 2 y 30 caracteres');
+      }
+      
+      // Validar formato de email
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        throw new Error('Email debe tener un formato válido');
+      }
+      
+      // Verificar si el usuario ya existe
+      let user;
+      try {
+        user = await this.usersService.findOne(username);
+        // Si existe, actualizar estado online
+        user = await this.usersService.updateOnlineStatus(username, true, client.id);
+      } catch (error) {
+        // Si no existe, crear nuevo usuario
+        const userColor = color || await this.usersService.generateRandomColor();
+        user = await this.usersService.create({
+          username,
+          displayName,
+          email,
+          color: userColor
+        });
+        user = await this.usersService.updateOnlineStatus(username, true, client.id);
+      }
+      
+      // Guardar información del usuario
+      this.connectedUsers.set(client.id, username);
+      
+      this.logger.log(`User ${username} logged in`);
+      
+      // Enviar confirmación al cliente
+      client.emit('user-logged-in', {
+        success: true,
+        user: {
+          username: user.username,
+          displayName: user.displayName,
+          color: user.color
+        }
+      });
+
+      // Notificar a todos los usuarios que alguien se conectó
+      this.server.emit('user-connected', {
+        username: user.username,
+        displayName: user.displayName,
+        color: user.color,
+        timestamp: new Date().toISOString(),
+      });
+
+      return { success: true, user };
+    } catch (error) {
+      this.logger.error('Error in user login:', error);
+      client.emit('user-login-error', {
+        success: false,
+        message: error.message
+      });
+      return { success: false, message: error.message };
+    }
   }
 
   @SubscribeMessage('join-board')
   handleJoinBoard(
-    @MessageBody() data: { boardId: string; userId: string },
+    @MessageBody() data: { boardId: string; username: string },
     @ConnectedSocket() client: Socket,
   ) {
-    const { boardId, userId } = data;
+    const { boardId, username } = data;
     
     // Unir al cliente a la sala del tablero
     client.join(`board-${boardId}`);
     
-    // Guardar información del usuario
-    this.connectedUsers.set(client.id, userId);
-    
-    this.logger.log(`User ${userId} joined board ${boardId}`);
+    this.logger.log(`User ${username} joined board ${boardId}`);
     
     // Notificar a otros usuarios en el tablero
-    client.to(`board-${boardId}`).emit('user-joined', {
-      userId,
+    client.to(`board-${boardId}`).emit('user-joined-board', {
+      username,
       socketId: client.id,
       timestamp: new Date().toISOString(),
     });

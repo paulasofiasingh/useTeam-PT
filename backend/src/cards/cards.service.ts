@@ -1,20 +1,34 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Card, CardDocument } from './schemas/card.schema';
 import { CreateCardDto } from './dto/create-card.dto';
 import { UpdateCardDto } from './dto/update-card.dto';
 import { MoveCardDto } from './dto/move-card.dto';
+import { WebSocketGateway } from '../websocket/websocket.gateway';
 
 @Injectable()
 export class CardsService {
   constructor(
     @InjectModel(Card.name) private cardModel: Model<CardDocument>,
+    @Inject(forwardRef(() => WebSocketGateway))
+    private webSocketGateway: WebSocketGateway,
   ) {}
 
   async create(createCardDto: CreateCardDto): Promise<Card> {
+    console.log('Creating card with data:', createCardDto);
     const createdCard = new this.cardModel(createCardDto);
-    return createdCard.save();
+    const savedCard = await createdCard.save();
+    console.log('Card created successfully:', savedCard);
+    
+    // Emitir evento WebSocket para notificar a otros usuarios
+    this.webSocketGateway.server.emit('card-created', {
+      card: savedCard,
+      columnId: createCardDto.columnId,
+      boardId: createCardDto.boardId
+    });
+    
+    return savedCard;
   }
 
   async findAll(): Promise<Card[]> {
@@ -57,6 +71,13 @@ export class CardsService {
       throw new NotFoundException(`Card with ID ${id} not found`);
     }
 
+    // Emitir evento WebSocket para notificar a otros usuarios
+    this.webSocketGateway.server.emit('card-updated', {
+      cardId: id,
+      updates: updateCardDto,
+      boardId: updatedCard.boardId
+    });
+
     return updatedCard;
   }
 
@@ -84,6 +105,14 @@ export class CardsService {
       throw new NotFoundException(`Card with ID ${id} not found`);
     }
 
+    // Emitir evento WebSocket para notificar a otros usuarios
+    this.webSocketGateway.server.emit('card-moved', {
+      cardId: id,
+      targetColumnId,
+      newPosition: newPosition || 0,
+      boardId: updatedCard.boardId
+    });
+
     return updatedCard;
   }
 
@@ -97,5 +126,11 @@ export class CardsService {
     if (!result) {
       throw new NotFoundException(`Card with ID ${id} not found`);
     }
+
+    // Emitir evento WebSocket para notificar a otros usuarios
+    this.webSocketGateway.server.emit('card-deleted', {
+      cardId: id,
+      boardId: result.boardId
+    });
   }
 }

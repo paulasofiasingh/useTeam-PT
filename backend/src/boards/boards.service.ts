@@ -12,16 +12,22 @@ export class BoardsService {
   ) {}
 
   async create(createBoardDto: CreateBoardDto): Promise<Board> {
+    console.log('Creating board with data:', createBoardDto);
     const createdBoard = new this.boardModel(createBoardDto);
-    return createdBoard.save();
+    const savedBoard = await createdBoard.save();
+    console.log('Board created successfully:', savedBoard);
+    return savedBoard;
   }
 
   async findAll(): Promise<Board[]> {
-    return this.boardModel
+    console.log('Finding all boards...');
+    const boards = await this.boardModel
       .find({ isActive: true })
       .populate('columns')
       .sort({ createdAt: -1 })
       .exec();
+    console.log('Found boards:', boards.length, boards);
+    return boards;
   }
 
   async findOne(id: string): Promise<Board> {

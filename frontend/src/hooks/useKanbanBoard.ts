@@ -3,27 +3,59 @@ import { DndContext, DragEndEvent, DragOverEvent, DragStartEvent } from '@dnd-ki
 import { arrayMove } from '@dnd-kit/sortable';
 import { Board, Column, Card } from '../types';
 import { boardsApi, columnsApi, cardsApi } from '../services/api';
+import { useWebSocket } from './useWebSocket';
 
-export const useKanbanBoard = (boardId?: string) => {
+export const useKanbanBoard = (boardId?: string, currentUser?: { username: string; displayName: string; color: string }) => {
   const [board, setBoard] = useState<Board | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeCard, setActiveCard] = useState<Card | null>(null);
+  const { socket, joinBoard } = useWebSocket();
 
   // Cargar tablero
   const loadBoard = async () => {
+    console.log('🚀 loadBoard ejecutándose...'); // ← Agrega esta línea
     try {
       setLoading(true);
       if (boardId) {
         const response = await boardsApi.getById(boardId);
         setBoard(response.data);
       } else {
-        // Si no hay boardId, crear un tablero por defecto
-        const response = await boardsApi.create({
-          name: 'Mi Tablero Kanban',
-          description: 'Tablero creado automáticamente'
-        });
-        setBoard(response.data);
+        // Buscar o crear el tablero compartido
+        const SHARED_BOARD_NAME = 'Tablero Kanban Compartido';
+        
+        try {
+          // Buscar todos los tableros
+          console.log('🔍 Buscando tableros existentes...');
+          const allBoards = await boardsApi.getAll();
+          console.log('📋 Tableros encontrados:', allBoards.data);
+          const sharedBoard = allBoards.data.find(board => board.name === SHARED_BOARD_NAME);
+          
+          if (sharedBoard) {
+            // Usar el tablero compartido existente
+            console.log('✅ Usando tablero compartido existente:', sharedBoard);
+            setBoard(sharedBoard);
+          } else {
+            // Crear el tablero compartido
+            console.log('🆕 Creando nuevo tablero compartido...');
+            const response = await boardsApi.create({
+              name: SHARED_BOARD_NAME,
+              description: 'Tablero colaborativo para todos los usuarios'
+            });
+            console.log('✅ Tablero creado:', response.data);
+            setBoard(response.data);
+          }
+        } catch (error) {
+          // Si hay error al buscar, crear uno nuevo
+          console.error('❌ Error al buscar tableros:', error);
+          console.log('🆕 Creando tablero de respaldo...');
+          const response = await boardsApi.create({
+            name: SHARED_BOARD_NAME,
+            description: 'Tablero colaborativo para todos los usuarios'
+          });
+          console.log('✅ Tablero de respaldo creado:', response.data);
+          setBoard(response.data);
+        }
       }
     } catch (err) {
       setError('Error al cargar el tablero');
@@ -69,14 +101,25 @@ export const useKanbanBoard = (boardId?: string) => {
         boardId: board._id 
       });
 
-      setBoard(prev => prev ? {
-        ...prev,
-        columns: prev.columns.map(col => 
-          col._id === columnId 
-            ? { ...col, cards: [...col.cards, response.data] }
-            : col
-        )
-      } : null);
+      // No agregar localmente, esperar el evento WebSocket para evitar duplicados
+      // setBoard(prev => prev ? {
+      //   ...prev,
+      //   columns: prev.columns.map(col => 
+      //     col._id === columnId 
+      //       ? { ...col, cards: [...col.cards, response.data] }
+      //       : col
+      //   )
+      // } : null);
+
+      // Emitir evento WebSocket para notificar a otros usuarios
+      if (socket && currentUser) {
+        socket.emit('card-created', {
+          card: response.data,
+          columnId,
+          createdBy: currentUser.username,
+          boardId: board._id
+        });
+      }
     } catch (err) {
       console.error('Error al crear tarjeta:', err);
     }
@@ -91,6 +134,7 @@ export const useKanbanBoard = (boardId?: string) => {
         targetColumnId: newColumnId,
         newPosition: newPosition
       });
+      
       // Actualizar estado local
       setBoard(prev => {
         if (!prev) return null;
@@ -107,28 +151,60 @@ export const useKanbanBoard = (boardId?: string) => {
         const targetColumn = prev.columns.find(col => col._id === newColumnId);
         if (!targetColumn) return prev;
 
-        // Remover tarjeta de la columna origen
-        const updatedSourceColumn = {
-          ...sourceColumn,
-          cards: sourceColumn.cards.filter(c => c._id !== cardId)
-        };
+        // Si es la misma columna, solo reordenar
+        if (sourceColumn._id === newColumnId) {
+          const currentPosition = sourceColumn.cards.findIndex(c => c._id === cardId);
+          const newCards = [...sourceColumn.cards];
+          
+          // Remover de la posición actual
+          newCards.splice(currentPosition, 1);
+          // Insertar en la nueva posición
+          newCards.splice(newPosition, 0, { ...card, columnId: newColumnId });
+          
+          return {
+            ...prev,
+            columns: prev.columns.map(col => 
+              col._id === newColumnId 
+                ? { ...col, cards: newCards }
+                : col
+            )
+          };
+        } else {
+          // Diferente columna
+          const updatedSourceColumn = {
+            ...sourceColumn,
+            cards: sourceColumn.cards.filter(c => c._id !== cardId)
+          };
 
-        // Agregar tarjeta a la columna destino
-        const updatedTargetColumn = {
-          ...targetColumn,
-          cards: arrayMove(targetColumn.cards, newPosition, newPosition)
-        };
-        updatedTargetColumn.cards[newPosition] = { ...card, columnId: newColumnId };
+          const newCards = [...targetColumn.cards];
+          newCards.splice(newPosition, 0, { ...card, columnId: newColumnId });
+          
+          const updatedTargetColumn = {
+            ...targetColumn,
+            cards: newCards
+          };
 
-        return {
-          ...prev,
-          columns: prev.columns.map(col => {
-            if (col._id === sourceColumn._id) return updatedSourceColumn;
-            if (col._id === newColumnId) return updatedTargetColumn;
-            return col;
-          })
-        };
+          return {
+            ...prev,
+            columns: prev.columns.map(col => {
+              if (col._id === sourceColumn._id) return updatedSourceColumn;
+              if (col._id === newColumnId) return updatedTargetColumn;
+              return col;
+            })
+          };
+        }
       });
+
+      // Emitir evento WebSocket para notificar a otros usuarios
+      if (socket && currentUser) {
+        socket.emit('card-moved', {
+          cardId,
+          targetColumnId: newColumnId,
+          newPosition,
+          movedBy: currentUser.username,
+          boardId: board._id
+        });
+      }
     } catch (err) {
       console.error('Error al mover tarjeta:', err);
     }
@@ -190,6 +266,16 @@ const updateColumn = async (columnId: string, data: { name?: string }) => {
           }))
         };
       });
+
+      // Emitir evento WebSocket para notificar a otros usuarios
+      if (socket && currentUser) {
+        socket.emit('card-updated', {
+          cardId,
+          updates: data,
+          updatedBy: currentUser.username,
+          boardId: board._id
+        });
+      }
     } catch (err) {
       console.error('Error al actualizar tarjeta:', err);
     }
@@ -213,6 +299,15 @@ const updateColumn = async (columnId: string, data: { name?: string }) => {
           }))
         };
       });
+
+      // Emitir evento WebSocket para notificar a otros usuarios
+      if (socket && currentUser) {
+        socket.emit('card-deleted', {
+          cardId,
+          deletedBy: currentUser.username,
+          boardId: board._id
+        });
+      }
     } catch (err) {
       console.error('Error al eliminar tarjeta:', err);
     }
@@ -236,9 +331,20 @@ const updateColumn = async (columnId: string, data: { name?: string }) => {
     const cardId = active.id as string;
     const overId = over.id as string;
 
+    // Encontrar la columna origen de la tarjeta
+    const sourceColumn = board.columns.find(col => 
+      col.cards.some(card => card._id === cardId)
+    );
+    
+    if (!sourceColumn) return;
+
     // Si se suelta sobre una columna
     const targetColumn = board.columns.find(col => col._id === overId);
     if (targetColumn) {
+      // Si es la misma columna, no hacer nada
+      if (sourceColumn._id === targetColumn._id) return;
+      
+      // Mover al final de la columna destino
       moveCard(cardId, overId, targetColumn.cards.length);
       return;
     }
@@ -254,12 +360,193 @@ const updateColumn = async (columnId: string, data: { name?: string }) => {
       );
       if (targetColumn) {
         const newPosition = targetColumn.cards.findIndex(card => card._id === overId);
-        moveCard(cardId, targetColumn._id, newPosition);
+        
+        // Si es la misma columna, ajustar la posición
+        if (sourceColumn._id === targetColumn._id) {
+          const sourcePosition = sourceColumn.cards.findIndex(card => card._id === cardId);
+          if (sourcePosition < newPosition) {
+            // Si se mueve hacia abajo, ajustar posición
+            moveCard(cardId, targetColumn._id, newPosition - 1);
+          } else {
+            moveCard(cardId, targetColumn._id, newPosition);
+          }
+        } else {
+          // Diferente columna
+          moveCard(cardId, targetColumn._id, newPosition);
+        }
       }
     }
   };
 
+  // Configurar eventos WebSocket para colaboración en tiempo real
   useEffect(() => {
+    console.log('🔌 Configurando WebSocket listeners...', { socket: !!socket, board: !!board, currentUser: !!currentUser });
+    
+    if (socket && board && currentUser) {
+      // Unirse al tablero
+      joinBoard(board._id);
+
+      // Escuchar actualizaciones de tarjetas
+      socket.on('card-updated', (data) => {
+        console.log('🃏 Evento card-updated recibido:', data);
+        setBoard(prev => {
+          if (!prev) return null;
+          
+          return {
+            ...prev,
+            columns: prev.columns.map(col => ({
+              ...col,
+              cards: col.cards.map(card => 
+                card._id === data.cardId ? { ...card, ...data.updates } : card
+              )
+            }))
+          };
+        });
+      });
+
+      // Escuchar nuevas tarjetas
+      socket.on('card-created', (data) => {
+        console.log('🃏 Evento card-created recibido:', data);
+        setBoard(prev => {
+          if (!prev) return null;
+          
+          return {
+            ...prev,
+            columns: prev.columns.map(col => {
+              if (col._id === data.columnId) {
+                // Verificar si la tarjeta ya existe para evitar duplicados
+                const cardExists = col.cards.some(card => card._id === data.card._id);
+                if (!cardExists) {
+                  return { ...col, cards: [...col.cards, data.card] };
+                }
+              }
+              return col;
+            })
+          };
+        });
+      });
+
+      // Escuchar tarjetas eliminadas
+      socket.on('card-deleted', (data) => {
+        if (data.deletedBy !== currentUser.username) {
+          setBoard(prev => {
+            if (!prev) return null;
+            
+            return {
+              ...prev,
+              columns: prev.columns.map(col => ({
+                ...col,
+                cards: col.cards.filter(card => card._id !== data.cardId)
+              }))
+            };
+          });
+        }
+      });
+
+      // Escuchar tarjetas movidas
+      socket.on('card-moved', (data) => {
+        if (data.movedBy !== currentUser.username) {
+          setBoard(prev => {
+            if (!prev) return null;
+            
+            const sourceColumn = prev.columns.find(col => 
+              col.cards.some(card => card._id === data.cardId)
+            );
+            
+            if (!sourceColumn) return prev;
+
+            const card = sourceColumn.cards.find(card => card._id === data.cardId);
+            if (!card) return prev;
+
+            const targetColumn = prev.columns.find(col => col._id === data.targetColumnId);
+            if (!targetColumn) return prev;
+
+            // Remover de columna origen
+            const updatedSourceColumn = {
+              ...sourceColumn,
+              cards: sourceColumn.cards.filter(c => c._id !== data.cardId)
+            };
+
+            // Agregar a columna destino
+            const newCards = [...targetColumn.cards];
+            newCards.splice(data.newPosition, 0, { ...card, columnId: data.targetColumnId });
+            
+            const updatedTargetColumn = {
+              ...targetColumn,
+              cards: newCards
+            };
+
+            return {
+              ...prev,
+              columns: prev.columns.map(col => {
+                if (col._id === sourceColumn._id) return updatedSourceColumn;
+                if (col._id === data.targetColumnId) return updatedTargetColumn;
+                return col;
+              })
+            };
+          });
+        }
+      });
+
+      // Escuchar nuevas columnas
+      socket.on('column-created', (data) => {
+        console.log('📋 Evento column-created recibido:', data);
+        setBoard(prev => {
+          if (!prev) return null;
+          
+          return {
+            ...prev,
+            columns: [...prev.columns, data.column]
+          };
+        });
+      });
+
+      // Escuchar columnas actualizadas
+      socket.on('column-updated', (data) => {
+        console.log('📋 Evento column-updated recibido:', data);
+        setBoard(prev => {
+          if (!prev) return null;
+          
+          return {
+            ...prev,
+            columns: prev.columns.map(col => 
+              col._id === data.column._id ? data.column : col
+            )
+          };
+        });
+      });
+
+      // Escuchar columnas eliminadas
+      socket.on('column-deleted', (data) => {
+        console.log('📋 Evento column-deleted recibido:', data);
+        setBoard(prev => {
+          if (!prev) return null;
+          
+          return {
+            ...prev,
+            columns: prev.columns.filter(col => col._id !== data.columnId)
+          };
+        });
+      });
+
+      // Limpiar listeners al desmontar
+      return () => {
+        console.log('🧹 Limpiando WebSocket listeners...');
+        socket.off('card-updated');
+        socket.off('card-created');
+        socket.off('card-deleted');
+        socket.off('card-moved');
+        socket.off('column-created');
+        socket.off('column-updated');
+        socket.off('column-deleted');
+      };
+    } else {
+      console.log('❌ No se pueden configurar listeners WebSocket:', { socket: !!socket, board: !!board, currentUser: !!currentUser });
+    }
+  }, [socket, board, currentUser, joinBoard]);
+
+  useEffect(() => {
+    console.log('🔄 useEffect ejecutándose, boardId:', boardId); // ← Agrega esta línea
     loadBoard();
   }, [boardId]);
 

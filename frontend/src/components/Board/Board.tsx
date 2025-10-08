@@ -10,9 +10,14 @@ import Swal from 'sweetalert2';
 
 interface BoardProps {
   boardId?: string;
+  currentUser?: {
+    username: string;
+    displayName: string;
+    color: string;
+  };
 }
 
-const Board: React.FC<BoardProps> = ({ boardId }) => {
+const Board: React.FC<BoardProps> = ({ boardId, currentUser }) => {
   const {
     board,
     loading,
@@ -26,7 +31,7 @@ const Board: React.FC<BoardProps> = ({ boardId }) => {
     deleteCard,
     handleDragStart,
     handleDragEnd
-  } = useKanbanBoard(boardId);
+  } = useKanbanBoard(boardId, currentUser);
 
   const [isAddingColumn, setIsAddingColumn] = useState(false);
   const [newColumnTitle, setNewColumnTitle] = useState('');

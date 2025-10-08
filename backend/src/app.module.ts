@@ -8,6 +8,7 @@ import { ColumnsModule } from './columns/columns.module';
 import { CardsModule } from './cards/cards.module';
 import { ExportModule } from './export/export.module';
 import { WebSocketModule } from './websocket/websocket.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { WebSocketModule } from './websocket/websocket.module';
     CardsModule,
     ExportModule,
     WebSocketModule,
+    UsersModule,
   ],
   controllers: [AppController],
   providers: [AppService],
