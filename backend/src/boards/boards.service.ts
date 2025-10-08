@@ -23,31 +23,27 @@ export class BoardsService {
     console.log('Finding all boards...');
     const boards = await this.boardModel
       .find({ isActive: true })
-      .populate('columns')
+      .populate({
+        path: 'columns',
+        match: { isActive: true },
+        populate: {
+          path: 'cards',
+          match: { isActive: true },
+          options: { sort: { position: 1 } }
+        },
+        options: { sort: { position: 1 } }
+      })
       .sort({ createdAt: -1 })
       .exec();
+
+    // No need for manual population since we're using populate in the query
+
     console.log('Found boards:', boards.length, boards);
     return boards;
   }
 
   async findOne(id: string): Promise<Board> {
-    const board = await this.boardModel
-      .findById(id)
-      .populate({
-        path: 'columns',
-        populate: {
-          path: 'cards',
-          options: { sort: { position: 1 } }
-        },
-        options: { sort: { position: 1 } }
-      })
-      .exec();
-
-    if (!board) {
-      throw new NotFoundException(`Board with ID ${id} not found`);
-    }
-
-    return board;
+    return this.getBoardWithFullData(id);
   }
 
   async update(id: string, updateBoardDto: UpdateBoardDto): Promise<Board> {
@@ -79,8 +75,10 @@ export class BoardsService {
       .findById(id)
       .populate({
         path: 'columns',
+        match: { isActive: true },
         populate: {
           path: 'cards',
+          match: { isActive: true },
           options: { sort: { position: 1 } }
         },
         options: { sort: { position: 1 } }

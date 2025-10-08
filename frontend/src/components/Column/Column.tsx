@@ -73,9 +73,9 @@ const Column: React.FC<ColumnProps> = ({
           items={column.cards.map(card => card._id)}
           strategy={verticalListSortingStrategy}
         >
-          {column.cards.map((card) => (
+          {column.cards.map((card, index) => (
             <Card
-              key={card._id}
+              key={card._id || `card-${index}`}
               card={card}
               onView={onViewCard}
             />

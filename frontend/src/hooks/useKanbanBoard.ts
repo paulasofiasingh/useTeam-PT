@@ -246,6 +246,7 @@ const updateColumn = async (columnId: string, data: { name?: string }) => {
     }
   };
 
+
   // Actualizar tarjeta
   const updateCard = async (cardId: string, data: { title?: string; description?: string }) => {
     if (!board) return;
@@ -528,6 +529,7 @@ const updateColumn = async (columnId: string, data: { name?: string }) => {
           };
         });
       });
+
 
       // Limpiar listeners al desmontar
       return () => {
