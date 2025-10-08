@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { DndContext, DragEndEvent, DragOverEvent, DragStartEvent } from '@dnd-kit/core';
-import { arrayMove } from '@dnd-kit/sortable';
+import { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { Board, Column, Card } from '../types';
 import { boardsApi, columnsApi, cardsApi } from '../services/api';
 import { useWebSocket } from './useWebSocket';

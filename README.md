@@ -397,29 +397,3 @@ taskkill /PID <PID> /F
 # En Linux/Mac
 lsof -ti:3000 | xargs kill -9
 ```
-
-## 🤝 Contribución
-
-1. Fork el proyecto
-2. Crear una rama para tu feature (`git checkout -b feature/AmazingFeature`)
-3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
-4. Push a la rama (`git push origin feature/AmazingFeature`)
-5. Abrir un Pull Request
-
-## 📄 Licencia
-
-Este proyecto está bajo la Licencia MIT. Ver el archivo `LICENSE` para más detalles.
-
-## 👥 Colaboradores
-
-- rodriguezibrahin3@gmail.com
-- jonnahuel78@gmail.com
-- administracion@useteam.io
-
-## 🆘 Soporte
-
-Si tienes problemas o preguntas, por favor abre un issue en el repositorio.
-
----
-
-**Desarrollado con ❤️ para useTeam**
