@@ -21,7 +21,7 @@
           "string": [
             {
               "name": "emailTo",
-              "value": "={{ $json.emailTo || 'admin@useteam.io' }}"
+              "value": "={{ $json.emailTo }}"
             },
             {
               "name": "emailSubject",

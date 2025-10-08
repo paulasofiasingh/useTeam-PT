@@ -38,6 +38,8 @@ const Board: React.FC<BoardProps> = ({ boardId, currentUser }) => {
   const [selectedCard, setSelectedCard] = useState<CardType | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportEmail, setExportEmail] = useState('');
 
   const handleAddColumn = () => {
     if (newColumnTitle.trim()) {
@@ -66,6 +68,54 @@ const Board: React.FC<BoardProps> = ({ boardId, currentUser }) => {
     setSelectedCard(card);
     setIsEditMode(true);
     setIsModalOpen(true);
+  };
+
+  const handleExportBacklog = () => {
+    setShowExportModal(true);
+  };
+
+  const handleConfirmExport = async () => {
+    if (!exportEmail.trim()) {
+      Swal.fire({
+        title: 'Error',
+        text: 'Por favor ingresa un email válido',
+        icon: 'error'
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch('http://localhost:3000/api/export/backlog', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          boardId: board?._id,
+          emailTo: exportEmail.trim()
+        })
+      });
+
+      if (response.ok) {
+        setShowExportModal(false);
+        setExportEmail('');
+        Swal.fire({
+          title: '¡Exportación iniciada!',
+          text: `El backlog se está exportando y será enviado a ${exportEmail}`,
+          icon: 'success',
+          timer: 3000
+        });
+      } else {
+        throw new Error('Error al exportar backlog');
+      }
+    } catch (error) {
+      console.error('Error al exportar backlog:', error);
+      Swal.fire({
+        title: 'Error',
+        text: 'No se pudo exportar el backlog. Inténtalo de nuevo.',
+        icon: 'error'
+      });
+    }
   };
 
   const handleCloseModal = () => {
@@ -123,10 +173,21 @@ const Board: React.FC<BoardProps> = ({ boardId, currentUser }) => {
   return (
     <div className="board">
       <div className="board-header">
-        <h1>{board.name}</h1>
-        {board.description && (
-          <p className="board-description">{board.description}</p>
-        )}
+        <div className="board-title">
+          <h1>{board.name}</h1>
+          {board.description && (
+            <p className="board-description">{board.description}</p>
+          )}
+        </div>
+        <div className="board-actions">
+          <button 
+            onClick={handleExportBacklog}
+            className="export-btn"
+            title="Exportar backlog a CSV por email"
+          >
+            📊 Exportar Backlog
+          </button>
+        </div>
       </div>
 
       <DndContext
@@ -236,6 +297,47 @@ const Board: React.FC<BoardProps> = ({ boardId, currentUser }) => {
         onDelete={handleDeleteCard}
         initialEditMode={isEditMode}
       />
+
+      {/* Modal de Exportación */}
+      {showExportModal && (
+        <div className="export-modal-overlay">
+          <div className="export-modal">
+            <div className="export-modal-header">
+              <h3>📊 Exportar Backlog</h3>
+              <button 
+                className="close-btn"
+                onClick={() => setShowExportModal(false)}
+              >
+                ×
+              </button>
+            </div>
+            <div className="export-modal-body">
+              <p>Ingresa el email donde quieres recibir el archivo CSV con el backlog del tablero:</p>
+              <input
+                type="email"
+                value={exportEmail}
+                onChange={(e) => setExportEmail(e.target.value)}
+                placeholder="ejemplo@email.com"
+                className="export-email-input"
+              />
+              <div className="export-modal-actions">
+                <button 
+                  className="btn-cancel"
+                  onClick={() => setShowExportModal(false)}
+                >
+                  Cancelar
+                </button>
+                <button 
+                  className="btn-export"
+                  onClick={handleConfirmExport}
+                >
+                  Exportar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
