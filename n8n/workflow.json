@@ -1,5 +1,4 @@
 {
-  "name": "Kanban Backlog Export",
   "nodes": [
     {
       "parameters": {
@@ -8,11 +7,14 @@
         "responseMode": "responseNode",
         "options": {}
       },
-      "id": "webhook-trigger",
+      "id": "af750145-7449-4eb4-81a4-3802f388aad1",
       "name": "Webhook Trigger",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
-      "position": [240, 300],
+      "position": [
+        -48,
+        224
+      ],
       "webhookId": "kanban-export-webhook"
     },
     {
@@ -21,11 +23,11 @@
           "string": [
             {
               "name": "emailTo",
-              "value": "paulasofiasingh@gmail.com"
+              "value": "={{ $json.body.emailTo }}"
             },
             {
               "name": "emailSubject",
-              "value": "Exportación de Backlog - {{ $json.boardName || 'Tablero Kanban' }}"
+              "value": "=Exportación de Backlog - {{ $json.body.boardName || 'Tablero Kanban' }}"
             },
             {
               "name": "emailFrom",
@@ -33,78 +35,79 @@
             },
             {
               "name": "boardName",
-              "value": "={{ $json.boardName || 'Tablero Kanban' }}"
+              "value": "={{ $json.body.boardName || 'Tablero Kanban' }}"
             },
             {
               "name": "boardId",
-              "value": "={{ $json.boardId }}"
+              "value": "={{ $json.body.boardId }}"
             }
           ]
         },
         "options": {}
       },
-      "id": "set-variables",
+      "id": "1959c468-5fb2-4cbc-9792-e24d97e0da41",
       "name": "Set Variables",
       "type": "n8n-nodes-base.set",
       "typeVersion": 1,
-      "position": [460, 300]
+      "position": [
+        176,
+        224
+      ]
     },
     {
       "parameters": {
-        "jsCode": "// Extraer y estructurar datos del tablero Kanban\nconst inputData = $input.first().json;\nconst boardData = inputData.boardData || {};\nconst columns = boardData.columns || [];\n\n// Estructurar datos para CSV\nlet csvData = [];\nlet csvHeaders = ['ID', 'Título', 'Descripción', 'Columna', 'Fecha de Creación', 'Fecha de Actualización', 'Prioridad', 'Asignado'];\n\n// Procesar cada columna y sus tarjetas\ncolumns.forEach(column => {\n  const columnName = column.name || 'Sin Nombre';\n  const cards = column.cards || [];\n  \n  cards.forEach(card => {\n    const cardData = [\n      card.id || '',\n      card.title || 'Sin Título',\n      card.description || '',\n      columnName,\n      card.createdAt ? new Date(card.createdAt).toISOString() : '',\n      card.updatedAt ? new Date(card.updatedAt).toISOString() : '',\n      card.priority || 'Media',\n      card.assignedTo || 'Sin Asignar'\n    ];\n    csvData.push(cardData);\n  });\n});\n\n// Generar CSV\nlet csvContent = csvHeaders.join(',') + '\\n';\ncsvData.forEach(row => {\n  // Escapar comillas y comas en los datos\n  const escapedRow = row.map(field => {\n    const stringField = String(field || '');\n    if (stringField.includes(',') || stringField.includes('\"') || stringField.includes('\\n')) {\n      return '\"' + stringField.replace(/\"/g, '\"\"') + '\"';\n    }\n    return stringField;\n  });\n  csvContent += escapedRow.join(',') + '\\n';\n});\n\n// Generar nombre de archivo con timestamp\nconst timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);\nconst fileName = `backlog-${inputData.boardName || 'tablero'}-${timestamp}.csv`;\n\nreturn {\n  json: {\n    csvContent: csvContent,\n    fileName: fileName,\n    totalCards: csvData.length,\n    totalColumns: columns.length,\n    boardName: inputData.boardName || 'Tablero Kanban',\n    exportDate: new Date().toISOString()\n  }\n};"
+        "jsCode": "// Extraer y estructurar datos del tablero Kanban\nconst inputData = $input.first().json;\nconst boardData = inputData.body.boardData || {};\nconst columns = boardData.columns || [];\n\n// Estructurar datos para CSV\nlet csvData = [];\nlet csvHeaders = ['ID', 'Título', 'Descripción', 'Columna', 'Fecha de Creación', 'Fecha de Actualización', 'Prioridad', 'Asignado'];\n\n// Procesar cada columna y sus tarjetas\ncolumns.forEach(column => {\n  const columnName = column.name || 'Sin Nombre';\n  const cards = column.cards || [];\n  \n  cards.forEach(card => {\n    const cardData = [\n      card.id || '',\n      card.title || 'Sin Título',\n      card.description || '',\n      columnName,\n      card.createdAt ? new Date(card.createdAt).toISOString() : '',\n      card.updatedAt ? new Date(card.updatedAt).toISOString() : '',\n      card.priority || 'Media',\n      card.assignedTo || 'Sin Asignar'\n    ];\n    csvData.push(cardData);\n  });\n});\n\n// Generar CSV\nlet csvContent = csvHeaders.join(',') + '\\n';\ncsvData.forEach(row => {\n  const escapedRow = row.map(field => {\n    const stringField = String(field || '');\n    if (stringField.includes(',') || stringField.includes('\"') || stringField.includes('\\n')) {\n      return '\"' + stringField.replace(/\"/g, '\"\"') + '\"';\n    }\n    return stringField;\n  });\n  csvContent += escapedRow.join(',') + '\\n';\n});\n\n// Generar nombre de archivo con timestamp\nconst timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);\nconst fileName = `backlog-${inputData.body.boardName || 'tablero'}-${timestamp}.csv`;\n\n// Crear propiedad binaria\nconst binaryData = Buffer.from(csvContent, 'utf8');\n\nreturn {\n  json: {\n    fileName: fileName,\n    totalCards: csvData.length,\n    totalColumns: columns.length,\n    boardName: inputData.body.boardName || 'Tablero Kanban',\n    exportDate: new Date().toISOString()\n  },\n  binary: {\n    data: {\n      data: binaryData,\n      mimeType: 'text/csv',\n      fileName: fileName\n    }\n  }\n};"
       },
-      "id": "extract-data",
+      "id": "e6030ac1-9d1e-446c-ad2d-a84f64cf2335",
       "name": "Extract Data & Generate CSV",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [680, 300]
+      "position": [
+        400,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"message\": \"Backlog exportado exitosamente\",\n  \"debug\": {\n    \"fileName\": \"{{ $('Extract Data & Generate CSV').item.json.fileName }}\",\n    \"totalCards\": {{ $('Extract Data & Generate CSV').item.json.totalCards }},\n    \"totalColumns\": {{ $('Extract Data & Generate CSV').item.json.totalColumns }},\n    \"boardName\": \"{{ $('Extract Data & Generate CSV').item.json.boardName }}\"\n  }\n}",
+        "options": {}
+      },
+      "id": "70f922e7-388c-45ff-9581-cc8914add353",
+      "name": "Success Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        832,
+        224
+      ]
     },
     {
       "parameters": {
         "fromEmail": "={{ $('Set Variables').item.json.emailFrom }}",
         "toEmail": "={{ $('Set Variables').item.json.emailTo }}",
         "subject": "={{ $('Set Variables').item.json.emailSubject }}",
-        "message": "Hola,\n\nTe enviamos la exportación del backlog del tablero '{{ $('Extract Data & Generate CSV').item.json.boardName }}'.\n\nDetalles de la exportación:\n- Total de tarjetas: {{ $('Extract Data & Generate CSV').item.json.totalCards }}\n- Total de columnas: {{ $('Extract Data & Generate CSV').item.json.totalColumns }}\n- Fecha de exportación: {{ $('Extract Data & Generate CSV').item.json.exportDate }}\n\nEl archivo CSV está adjunto a este email.\n\nSaludos,\nEquipo Kanban",
-        "attachments": {
-          "attachments": [
-            {
-              "name": "={{ $('Extract Data & Generate CSV').item.json.fileName }}",
-              "data": "={{ $('Extract Data & Generate CSV').item.json.csvContent }}",
-              "type": "text/csv"
-            }
-          ]
-        },
-        "options": {}
+        "text": "=Hola,\n\n\nEl archivo CSV está adjunto a este email.\n\nSaludos,\nEquipo Kanban",
+        "options": {
+          "appendAttribution": true,
+          "attachments": "data"
+        }
       },
-      "id": "send-email",
-      "name": "Send Email",
+      "id": "ebd23c24-080d-47eb-8416-a29628826f14",
+      "name": "Send email",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2,
-      "position": [900, 300]
-    },
-    {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\n  \"success\": true,\n  \"message\": \"Backlog exportado exitosamente\",\n  \"data\": {}\n}",
-        "options": {}
-      },
-      "id": "success-response",
-      "name": "Success Response",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [1120, 300]
-    },
-    {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "={\n  \"success\": false,\n  \"message\": \"Error al exportar backlog\",\n  \"error\": \"{{ $json.error || 'Error desconocido' }}\",\n  \"timestamp\": \"{{ new Date().toISOString() }}\"\n}",
-        "options": {}
-      },
-      "id": "error-response",
-      "name": "Error Response",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [1120, 500]
+      "position": [
+        608,
+        224
+      ],
+      "webhookId": "2f500d86-b101-45dd-af09-afc472953c7d",
+      "credentials": {
+        "smtp": {
+          "id": "jZ4djSFgi3f6oQVQ",
+          "name": "SMTP account"
+        }
+      }
     }
   ],
   "connections": {
@@ -134,14 +137,14 @@
       "main": [
         [
           {
-            "node": "Send Email",
+            "node": "Send email",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Send Email": {
+    "Send email": {
       "main": [
         [
           {
@@ -153,21 +156,9 @@
       ]
     }
   },
-  "active": false,
-  "settings": {
-    "executionOrder": "v1"
-  },
-  "versionId": "1",
+  "pinData": {},
   "meta": {
-    "templateCredsSetupCompleted": true
-  },
-  "id": "kanban-export-workflow",
-  "tags": [
-    {
-      "createdAt": "2024-01-15T10:00:00.000Z",
-      "updatedAt": "2024-01-15T10:00:00.000Z",
-      "id": "kanban",
-      "name": "kanban"
-    }
-  ]
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ff2e1557fddb926ac8f67cb057a7ecd0f579d90fd0f4d42745891399929d15cf"
+  }
 }
