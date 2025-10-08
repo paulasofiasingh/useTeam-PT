@@ -17,7 +17,7 @@ export class ExportService {
   async exportBacklog(exportBacklogDto: ExportBacklogDto): Promise<any> {
     try {
       // Obtener datos del tablero
-      const board = await this.boardsService.getBoardWithFullData(exportBacklogDto.boardId);
+      const board = await this.boardsService.findOne(exportBacklogDto.boardId);
       
       if (!board) {
         throw new NotFoundException(`Board with ID ${exportBacklogDto.boardId} not found`);
@@ -32,15 +32,15 @@ export class ExportService {
         boardData: {
           name: board.name,
           description: board.description,
-          createdAt: board.createdAt,
-          updatedAt: board.updatedAt,
-          columns: board.columns.map(column => ({
+          createdAt: (board as any).createdAt,
+          updatedAt: (board as any).updatedAt,
+          columns: board.columns.map((column: any) => ({
             id: column._id,
             name: column.name,
             description: column.description,
             position: column.position,
             color: column.color,
-            cards: column.cards.map(card => ({
+            cards: column.cards.map((card: any) => ({
               id: card._id,
               title: card.title,
               description: card.description,
@@ -49,8 +49,8 @@ export class ExportService {
               dueDate: card.dueDate,
               tags: card.tags,
               position: card.position,
-              createdAt: card.createdAt,
-              updatedAt: card.updatedAt,
+              createdAt: (card as any).createdAt,
+              updatedAt: (card as any).updatedAt,
             }))
           }))
         }
@@ -81,7 +81,7 @@ export class ExportService {
           boardId: exportBacklogDto.boardId,
           boardName: exportBacklogDto.boardName || board.name,
           emailTo: exportBacklogDto.emailTo,
-          totalCards: board.columns.reduce((total, column) => total + column.cards.length, 0),
+          totalCards: board.columns.reduce((total, column: any) => total + column.cards.length, 0),
           totalColumns: board.columns.length,
           exportDate: new Date().toISOString(),
           n8nResponse: result
