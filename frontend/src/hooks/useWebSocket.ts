@@ -15,6 +15,7 @@ interface UseWebSocketReturn {
   login: (username: string, displayName: string, email: string, color: string) => void;
   joinBoard: (boardId: string) => void;
   leaveBoard: (boardId: string) => void;
+  fetchOnlineUsers: () => Promise<void>;
 }
 
 export const useWebSocket = (): UseWebSocketReturn => {
@@ -51,6 +52,21 @@ export const useWebSocket = (): UseWebSocketReturn => {
       if (data.success) {
         setCurrentUser(data.user);
         console.log('✅ Usuario logueado:', data.user);
+        
+        // Obtener lista completa de usuarios online
+        fetch('http://localhost:3000/api/users/online')
+          .then(response => response.json())
+          .then(users => {
+            const formattedUsers = users.map((user: any) => ({
+              username: user.username,
+              displayName: user.displayName,
+              color: user.color
+            }));
+            setOnlineUsers(formattedUsers);
+          })
+          .catch(error => {
+            console.error('❌ Error al obtener usuarios online:', error);
+          });
       }
     });
 
@@ -124,6 +140,25 @@ export const useWebSocket = (): UseWebSocketReturn => {
     }
   };
 
+  const fetchOnlineUsers = async () => {
+    try {
+      const response = await fetch('http://localhost:3000/api/users/online');
+      const users = await response.json();
+      console.log('📋 Usuarios online obtenidos del servidor:', users);
+      
+      // Convertir a formato esperado por el frontend
+      const formattedUsers = users.map((user: any) => ({
+        username: user.username,
+        displayName: user.displayName,
+        color: user.color
+      }));
+      
+      setOnlineUsers(formattedUsers);
+    } catch (error) {
+      console.error('❌ Error al obtener usuarios online:', error);
+    }
+  };
+
   return {
     socket,
     isConnected,
@@ -131,6 +166,7 @@ export const useWebSocket = (): UseWebSocketReturn => {
     onlineUsers,
     login,
     joinBoard,
-    leaveBoard
+    leaveBoard,
+    fetchOnlineUsers
   };
 };

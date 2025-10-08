@@ -25,11 +25,18 @@ export class WebSocketGateway implements OnGatewayConnection, OnGatewayDisconnec
 
   private logger: Logger = new Logger('WebSocketGateway');
   private connectedUsers: Map<string, string> = new Map(); // socketId -> username
+  private connectedUsersData: Map<string, any> = new Map(); // socketId -> user data
 
   constructor(private readonly usersService: UsersService) {}
 
   handleConnection(client: Socket) {
     this.logger.log(`Client connected: ${client.id}`);
+  }
+
+  getConnectedUsers() {
+    const users = Array.from(this.connectedUsersData.values());
+    this.logger.log(`Returning ${users.length} connected users`);
+    return users;
   }
 
   handleDisconnect(client: Socket) {
@@ -40,6 +47,7 @@ export class WebSocketGateway implements OnGatewayConnection, OnGatewayDisconnec
     if (username) {
       this.usersService.disconnectUser(client.id);
       this.connectedUsers.delete(client.id);
+      this.connectedUsersData.delete(client.id);
       
       // Notificar a otros usuarios que este usuario se desconectó
       this.server.emit('user-disconnected', {
@@ -96,6 +104,12 @@ export class WebSocketGateway implements OnGatewayConnection, OnGatewayDisconnec
       
       // Guardar información del usuario
       this.connectedUsers.set(client.id, username);
+      this.connectedUsersData.set(client.id, {
+        username: user.username,
+        displayName: user.displayName,
+        color: user.color,
+        socketId: client.id
+      });
       
       this.logger.log(`User ${username} logged in`);
       
